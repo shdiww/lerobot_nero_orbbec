@@ -1,0 +1,9 @@
+[submodule "pyorbbecsdk"]
+	path = pyorbbecsdk
+	url = https://github.com/orbbec/pyorbbecsdk.git
+[submodule "pyAgxArm"]
+	path = pyAgxArm
+	url = https://github.com/agilexrobotics/pyAgxArm.git
+[submodule "lerobot"]
+	path = lerobot
+	url = https://github.com/huggingface/lerobot.git
