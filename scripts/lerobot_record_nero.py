@@ -72,7 +72,7 @@ from lerobot.utils.utils import init_logging
 logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_DEFAULT_DATASET_ROOT = str(_PROJECT_ROOT / "datasets")
+_DEFAULT_DATASET_ROOT = str(_PROJECT_ROOT / "dataset")
 
 
 @dataclass
@@ -311,7 +311,7 @@ def record(cfg: NeroRecordConfig):
     logger.info("Motion mode forced to 'js' (servo mode) for teleoperation")
 
     if cfg.dataset.root is None:
-        cfg.dataset.root = _DEFAULT_DATASET_ROOT
+        cfg.dataset.root = str(Path(_DEFAULT_DATASET_ROOT) / time.strftime("%Y%m%d_%H%M%S"))
 
     logging.info(pformat(asdict(cfg)))
 
@@ -355,7 +355,7 @@ def record(cfg: NeroRecordConfig):
             )
         else:
             cfg.dataset.stamp_repo_id()
-            cfg.dataset.root = str(Path(_DEFAULT_DATASET_ROOT) / cfg.dataset.repo_id)
+            cfg.dataset.root = str(Path(_DEFAULT_DATASET_ROOT) / time.strftime("%Y%m%d_%H%M%S") / cfg.dataset.repo_id)
             dataset = LeRobotDataset.create(
                 cfg.dataset.repo_id,
                 cfg.dataset.fps,

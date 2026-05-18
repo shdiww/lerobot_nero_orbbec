@@ -38,6 +38,15 @@ Usage:
     uv run python scripts/lerobot_teleoperate_nero.py \
         --robot.type=nero --teleop.type=nero_gamepad \
         --use_orbbec_camera=true --display_cameras=true
+
+    python scripts/lerobot_teleoperate_nero.py \ 
+        --robot.type=nero \
+        --teleop.type=nero_gamepad \   
+        --use_orbbec_camera=true \
+        --display_cameras=true \
+        --robot.motion_mode=js 
+
+
 """
 
 import logging
