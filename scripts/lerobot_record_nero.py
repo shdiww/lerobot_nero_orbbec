@@ -44,6 +44,7 @@ import numpy as np
 from lerobot.cameras.configs import ColorMode
 from lerobot.cameras.opencv import OpenCVCameraConfig  # noqa: F401
 from lerobot.cameras.orbbec import OrbbecCameraConfig  # noqa: F401
+from lerobot.cameras.realsense import RealSenseCameraConfig  # noqa: F401
 from lerobot.common.control_utils import init_keyboard_listener, is_headless
 from lerobot.configs import parser
 from lerobot.configs.dataset import DatasetRecordConfig
@@ -82,6 +83,9 @@ class NeroRecordConfig:
     dataset: DatasetRecordConfig
     fps: int = 30
     use_orbbec_camera: bool = False
+    orbbec_sn: str | None = None
+    use_realsense_camera: bool = False
+    realsense_sn: str | None = None
     display_cameras: bool = False
     display_data: bool = False
     resume: bool = False
@@ -304,8 +308,19 @@ def record(cfg: NeroRecordConfig):
             fps=30, width=1280, height=720,
             color_mode=ColorMode.RGB, warmup_s=2,
             auto_exposure=True, auto_white_balance=True,
+            serial_number=cfg.orbbec_sn,
+            resize_width=640, resize_height=480,
         )
-        logger.info("Orbbec camera attached as 'top'")
+        logger.info(f"Orbbec camera attached as 'top' (SN={cfg.orbbec_sn or 'auto'})")
+
+    if cfg.use_realsense_camera:
+        sn = cfg.realsense_sn or ""
+        cfg.robot.cameras["realsense"] = RealSenseCameraConfig(
+            serial_number_or_name=sn,
+            fps=30, width=640, height=480,
+            color_mode=ColorMode.RGB,
+        )
+        logger.info(f"RealSense camera attached (SN={sn or 'auto'})")
 
     cfg.robot.motion_mode = "js"
     logger.info("Motion mode forced to 'js' (servo mode) for teleoperation")

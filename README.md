@@ -1,6 +1,6 @@
 # lerobot_nero_orbbec
 
-基于 [HuggingFace LeRobot](https://github.com/huggingface/lerobot) 的 Nero 机械臂 + Orbbec 深度相机集成项目。
+基于 [HuggingFace LeRobot](https://github.com/huggingface/lerobot) 的 Nero 机械臂 + Orbbec/RealSense 相机集成项目。
 
 ## 项目结构
 
@@ -9,7 +9,7 @@ lerobot_nero_orbbec/
 ├── lerobot/            # LeRobot 子模块（fork 自 shdiww/lerobot_nero，含 nero/orbbec 注册代码）
 ├── pyAgxArm/           # Agilex Nero 机械臂 SDK 子模块
 ├── pyorbbecsdk/        # Orbbec 相机 SDK 子模块（需 C++ 编译）
-├── scripts/            # Nero/Orbbec 相关测试与采集脚本
+├── scripts/            # Nero/相机 相关测试与采集脚本
 ├── pyproject.toml      # 项目环境配置（基于 lerobot 的 pyproject.toml）
 ├── uv.lock             # 依赖锁文件
 └── .venv/              # uv 管理的虚拟环境
@@ -23,67 +23,203 @@ lerobot_nero_orbbec/
 | `pyAgxArm` | `agilexrobotics/pyAgxArm` | Agilex 机械臂 Python SDK，通过 CAN 总线控制 |
 | `pyorbbecsdk` | `orbbec/pyorbbecsdk` | Orbbec 深度相机 SDK，需先 C++ 编译生成 .so 再安装 |
 
-## 环境配置
+## 环境配置（完整流程）
 
 ### 前置条件
 
 - Python >= 3.12
 - [uv](https://docs.astral.sh/uv/) 包管理器
 - CMake >= 3.15, C++14 编译器
-- pybind11
 - CAN 总线支持（Nero 机械臂需要）
+- Git（含 submodule 支持）
 
-### 1. 初始化子模块
+### Step 1: 克隆仓库并初始化子模块
 
 ```bash
+git clone --recurse-submodules git@github.com:shdiww/lerobot_nero_orbbec.git
+# 如果忘记 --recurse-submodules，可以事后执行：
 git submodule update --init --recursive
 ```
 
-### 2. 创建 uv 环境
+### Step 2: 创建 uv 环境
 
 ```bash
 uv lock
 uv sync
 ```
 
-### 3. 安装 Nero extra 依赖
+### Step 3: 安装项目依赖
 
 ```bash
+# Nero extra（手柄、CAN、IK 等）
 uv sync --extra nero
+
+# 训练相关（如需训练模型）
+uv sync --extra dataset --extra diffusion --extra training
+
+# 仿真环境（如需 PushT 仿真）
+uv sync --extra pusht
+
+# RealSense 相机
+uv sync --extra intelrealsense
 ```
 
-这会安装 pygame（手柄）、python-can（CAN 总线）、scipy、pytracik（IK 求解）等依赖。
+> **注意**：`uv sync` 会覆盖通过 `uv pip install` 安装的手动包。每次 `uv sync` 后需重新执行 Step 4 和 Step 5。
 
-### 4. 安装 pyAgxArm（机械臂 SDK）
+### Step 4: 安装 pyAgxArm（机械臂 SDK）
 
 ```bash
 uv pip install -e ./pyAgxArm
 ```
 
-### 5. 编译并安装 pyorbbecsdk（相机 SDK）
+### Step 5: 编译并安装 pyorbbecsdk（Orbbec 相机 SDK）
 
 ```bash
-# 安装 pybind11（如果 uv sync 没有安装）
+# 安装 pybind11
 uv pip install pybind11
 
-# C++ 编译
+# C++ 编译（必须用 uv 环境的 pybind11 和 Python，不能用系统级的）
 cd pyorbbecsdk
-mkdir -p build && cd build
+rm -rf build && mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release \
-  -Dpybind11_DIR=$(../../.venv/bin/python -c "import pybind11; print(pybind11.get_cmake_dir())")
+  -Dpybind11_DIR=$(/home/blzgz/lerobot_nero_orbbec/.venv/bin/python -c "import pybind11; print(pybind11.get_cmake_dir())") \
+  -DPython3_EXECUTABLE=/home/blzgz/lerobot_nero_orbbec/.venv/bin/python
 make -j$(nproc)
 make install
 cd ../..
 
-# 安装 Python 包
-uv pip install -e ./pyorbbecsdk
+# 安装 Python 包（必须用非 editable 模式，否则 .so 不会被正确加载）
+uv pip install ./pyorbbecsdk
 ```
 
-### 6. 验证安装
+> **关键**：pyorbbecsdk **必须用非 editable 模式**安装（`uv pip install ./pyorbbecsdk`，不加 `-e`）。editable 模式会导致 Python 从源码目录加载而非 `install/lib/`，找不到 `.so` 文件。
+
+### Step 6: 验证安装
 
 ```bash
-uv run python -c "import lerobot; import pyAgxArm; import pyorbbecsdk; print('All packages OK')"
+/home/blzgz/lerobot_nero_orbbec/.venv/bin/python -c "
+import pyorbbecsdk; print('pyorbbecsdk OK')
+import pyAgxArm; print('pyAgxArm OK')
+import lerobot; print('lerobot OK')
+"
 ```
+
+## 多相机配置
+
+### 相机检测
+
+```bash
+# 检测所有 Orbbec 相机
+/home/blzgz/lerobot_nero_orbbec/.venv/bin/python -c "
+from lerobot.cameras.orbbec import OrbbecCamera
+cams = OrbbecCamera.find_cameras()
+for c in cams:
+    print(f'  {c[\"name\"]}  SN={c[\"sn\"]}')
+"
+
+# 检测 RealSense 相机
+/home/blzgz/lerobot_nero_orbbec/.venv/bin/python -c "
+import pyrealsense2 as rs
+ctx = rs.context()
+for d in ctx.devices:
+    print(f'  SN={d.get_info(rs.camera_info.serial_number)}  Name={d.get_info(rs.camera_info.name)}')
+"
+```
+
+### Orbbec + RealSense 共存的 uvcvideo 驱动冲突
+
+Orbbec SDK 和 RealSense 都依赖 Linux `uvcvideo` 内核驱动，同时使用时可能冲突。
+
+**解决方案**：确保 `uvcvideo` 已加载，RealSense 优先使用 uvcvideo，Orbbec 使用其私有驱动（libusb）。
+
+```bash
+# 1. 确认 uvcvideo 已加载
+sudo modprobe uvcvideo
+lsmod | grep uvcvideo
+
+# 2. 如果 Orbbec 占用了 uvcvideo 导致 RealSense 找不到设备
+#    设置环境变量让 Orbbec SDK 不走 uvc 通道
+export ORBBEC_SDK_DISABLE_UVC=1
+
+# 3. 重新拔插所有相机
+
+# 4. 验证三个相机都能识别
+/home/blzgz/lerobot_nero_orbbec/.venv/bin/python -c "
+from lerobot.cameras.orbbec import OrbbecCamera
+import pyrealsense2 as rs
+
+cams = OrbbecCamera.find_cameras()
+print(f'Orbbec: {len(cams)}')
+for c in cams:
+    print(f'  {c[\"name\"]}  SN={c[\"sn\"]}')
+
+ctx = rs.context()
+print(f'RealSense: {len(ctx.devices)}')
+for d in ctx.devices:
+    print(f'  SN={d.get_info(rs.camera_info.serial_number)}  Name={d.get_info(rs.camera_info.name)}')
+"
+```
+
+**排查步骤**（如果 RealSense 还是 0 devices）：
+
+```bash
+# 检查 USB 是否识别到 RealSense
+lsusb | grep -i "Intel\|RealSense"
+
+# 如果 lsusb 能看到但 pyrealsense2 找不到，检查 udev 规则
+sudo apt install librealsense2-udev-rules 2>/dev/null || \
+  curl -s https://raw.githubusercontent.com/IntelRealSense/librealsense/master/config/99-realsense-libusb.rules | \
+  sudo tee /etc/udev/rules.d/99-realsense-libusb.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+
+# 重新拔插相机后重试
+```
+
+**建议**：将 `ORBBEC_SDK_DISABLE_UVC=1` 写入 `~/.bashrc` 永久生效：
+
+```bash
+echo 'export ORBBEC_SDK_DISABLE_UVC=1' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### 命令行使用多相机
+
+**双 Orbbec 相机遥操作：**
+```bash
+python scripts/lerobot_teleoperate_nero.py \
+  --robot.type=nero --teleop.type=nero_gamepad \
+  --use_orbbec_camera=true \
+  --orbbec_second_camera=true \
+  --orbbec_top_sn=CL87B530020 \
+  --orbbec_wrist_sn=CP0F4630006E \
+  --display_cameras=true
+```
+
+**Orbbec + RealSense 混合使用：**
+```bash
+python scripts/lerobot_teleoperate_nero.py \
+  --robot.type=nero --teleop.type=nero_gamepad \
+  --use_orbbec_camera=true \
+  --orbbec_top_sn=CL87B530020 \
+  --use_realsense_camera=true \
+  --realsense_sn=243622072771 \
+  --display_cameras=true
+```
+
+**三相机同时使用：**
+```bash
+python scripts/lerobot_teleoperate_nero.py \
+  --robot.type=nero --teleop.type=nero_gamepad \
+  --use_orbbec_camera=true \
+  --orbbec_second_camera=true \
+  --orbbec_top_sn=CL87B530020 \
+  --orbbec_wrist_sn=CP0F4630006E \
+  --use_realsense_camera=true \
+  --realsense_sn=243622072771 \
+  --display_cameras=true
+```
+
+数据采集同理，替换为 `lerobot_record_nero.py` 并添加 `--dataset` 参数。
 
 ## Nero 机器人在 LeRobot 中的注册
 
@@ -94,6 +230,61 @@ uv run python -c "import lerobot; import pyAgxArm; import pyorbbecsdk; print('Al
 | Nero 机器人 | `RobotConfig.register_subclass("nero")` | `lerobot/src/lerobot/robots/nero/` |
 | Orbbec 相机 | `CameraConfig.register_subclass("orbbec")` | `lerobot/src/lerobot/cameras/orbbec/` |
 | Nero 手柄遥操作 | `TeleoperatorConfig.register_subclass("nero_gamepad")` | `lerobot/src/lerobot/teleoperators/nero_gamepad/` |
+
+## 训练
+
+### 仿真环境验证（PushT）
+
+```bash
+# 安装依赖
+uv sync --extra pusht --extra diffusion --extra dataset --extra training
+uv pip install -e ./pyAgxArm  # uv sync 会覆盖，需重装
+uv pip install ./pyorbbecsdk  # 同上
+uv pip install "httpx[socks]" # 代理支持
+uv pip install "pymunk>=6.6.0,<6.7.0"  # gym-pusht 兼容
+
+# 训练
+lerobot-train \
+  --policy.type=diffusion \
+  --dataset.repo_id=lerobot/pusht \
+  --policy.repo_id=local/pusht_diffusion \
+  --policy.push_to_hub=false \
+  --steps=100000 \
+  --batch_size=8 \
+  --wandb.enable=false \
+  --output_dir=outputs/pusht_diffusion \
+  --save_freq=20000 \
+  --eval_freq=20000
+
+# 评估（需用同步模式，避免 gym-pusht 多进程注册问题）
+lerobot-eval \
+  --policy.path=outputs/pusht_diffusion/checkpoints/100000/pretrained_model \
+  --env.type=pusht \
+  --eval.n_episodes=10 \
+  --eval.use_async_envs=false \
+  --policy.push_to_hub=false
+```
+
+### 训练参数说明
+
+| 参数 | 说明 |
+|------|------|
+| `--steps=N` | 总训练步数（1 step = 1 个 batch 的梯度更新），非 epoch |
+| `--batch_size=N` | 每步的 batch 大小 |
+| `--policy.optimizer_lr` | 学习率 |
+| `--save_freq=N` | 每 N 步保存一次 checkpoint |
+| `--policy.push_to_hub=false` | 禁止推送到 HuggingFace Hub |
+| `--wandb.enable=false` | 禁止 wandb 日志 |
+
+### 关键代码位置
+
+| 改什么 | 去哪改 |
+|--------|--------|
+| 超参（lr, steps, batch_size） | 命令行 `--steps`, `--batch_size`, `--policy.optimizer_lr` |
+| Diffusion 专属参数（horizon, down_dims 等） | 命令行 `--policy.horizon`, `--policy.down_dims` 或 `lerobot/src/lerobot/policies/diffusion/configuration_diffusion.py` |
+| U-Net 网络结构 | `lerobot/src/lerobot/policies/diffusion/modeling_diffusion.py` |
+| 数据预处理 | `lerobot/src/lerobot/policies/diffusion/processor_diffusion.py` |
+| 训练循环 | `lerobot/src/lerobot/scripts/lerobot_train.py` |
 
 ## 脚本说明
 
@@ -110,8 +301,94 @@ uv run python -c "import lerobot; import pyAgxArm; import pyorbbecsdk; print('Al
 | `scripts/test_orbbec_05_lerobot_integration.py` | LeRobot 相机接口集成测试 |
 | `scripts/test_orbbec_06_nero_framework.py` | Nero 框架集成测试 |
 
-## 注意事项
+## 常见问题
 
-- `uv sync` 会覆盖通过 `uv pip install -e .` 安装的本地包（pyAgxArm、pyorbbecsdk2），每次 `uv sync` 后需重新安装
-- CAN 总线使用前需配置：`sudo ip link set can0 up type can bitrate 1000000`
-- pyorbbecsdk 的 `.so` 文件平台相关，当前编译配置为 `linux_x64`
+### 1. `uv sync` 后 pyAgxArm / pyorbbecsdk 丢失
+
+`uv sync` 会覆盖手动 `uv pip install` 的包。每次 `uv sync` 后需重新安装：
+
+```bash
+uv pip install -e ./pyAgxArm
+uv pip install ./pyorbbecsdk
+```
+
+### 2. pyorbbecsdk ImportError: cannot import name 'OBFormat'
+
+**原因**：editable 安装（`-e`）导致 Python 从源码目录加载而非 `install/lib/`。
+
+**解决**：用非 editable 模式安装：
+```bash
+uv pip install ./pyorbbecsdk  # 不要加 -e
+```
+
+### 3. pyorbbecsdk 编译失败：`invalid use of incomplete type 'PyFrameObject'`
+
+**原因**：系统级 pybind11（2.9.x）太旧，不兼容 Python 3.13。
+
+**解决**：cmake 时指定 uv 环境的 pybind11 和 Python：
+```bash
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+  -Dpybind11_DIR=$(.venv/bin/python -c "import pybind11; print(pybind11.get_cmake_dir())") \
+  -DPython3_EXECUTABLE=.venv/bin/python
+```
+
+### 4. opencv 报错 `cvDestroyAllWindows` 或 `cv2.ROTATE_90_CLOCKWISE` 不存在
+
+**原因**：安装了 `opencv-python-headless`（无 GUI）或安装损坏。
+
+**解决**：项目 pyproject.toml 已改为 `opencv-python`（非 headless）。如果 cv2 模块损坏，重装：
+```bash
+uv pip uninstall opencv-python && uv pip install opencv-python
+```
+
+### 5. RealSense 找不到设备（0 devices）
+
+**排查**：
+1. `lsusb | grep Intel` 确认 USB 识别
+2. `sudo modprobe uvcvideo` 确认驱动加载
+3. 安装 udev 规则：`sudo apt install librealsense2-udev-rules`
+4. Orbbec 与 uvcvideo 冲突：`export ORBBEC_SDK_DISABLE_UVC=1`
+
+### 6. gym-pusht 评估失败
+
+**原因**：`gym-pusht` 注册在多进程中失效，或 `pymunk` 版本不兼容。
+
+**解决**：
+```bash
+# 用同步模式评估
+--eval.use_async_envs=false
+
+# 降级 pymunk
+uv pip install "pymunk>=6.6.0,<6.7.0"
+```
+
+### 7. HuggingFace Hub 401 Unauthorized
+
+**原因**：训练完后自动推送模型到 Hub，但未登录。
+
+**解决**：加 `--policy.push_to_hub=false` 禁止推送。
+
+### 8. SOCKS 代理错误
+
+**原因**：环境变量设置了 SOCKS 代理但缺少 `socksio` 包。
+
+**解决**：`uv pip install "httpx[socks]"`
+
+### 9. 子模块 URDF 文件丢失
+
+**原因**：上游 lerobot 的 `.gitignore` 包含 `*.urdf`，pull 后被忽略。
+
+**解决**：在 fork 中删除 `.gitignore` 里的 `*.urdf` 规则，然后 `git add -f` 强制添加：
+```bash
+cd lerobot
+# 编辑 .gitignore 移除 *.urdf
+git add -f src/lerobot/robots/nero/nero_description/urdf/*.urdf
+git commit -m "fix: track URDF files"
+git push
+```
+
+## CAN 总线配置
+
+```bash
+sudo ip link set can0 up type can bitrate 1000000
+```

@@ -59,6 +59,7 @@ import cv2
 import numpy as np
 from lerobot.cameras.opencv import OpenCVCameraConfig  # noqa: F401
 from lerobot.cameras.orbbec import OrbbecCameraConfig  # noqa: F401
+from lerobot.cameras.realsense import RealSenseCameraConfig  # noqa: F401
 from lerobot.cameras.configs import ColorMode
 from lerobot.configs import parser
 from lerobot.robots import Robot, RobotConfig, make_robot_from_config, nero  # noqa: F401
@@ -88,6 +89,9 @@ class NeroTeleoperateConfig:
     display_data: bool = False
     display_cameras: bool = False
     use_orbbec_camera: bool = False
+    orbbec_sn: str | None = None
+    use_realsense_camera: bool = False
+    realsense_sn: str | None = None
     display_ip: str | None = None
     display_port: int | None = None
     display_compressed_images: bool = False
@@ -237,8 +241,19 @@ def teleoperate(cfg: NeroTeleoperateConfig):
             fps=30, width=1280, height=720,
             color_mode=ColorMode.RGB, warmup_s=2,
             auto_exposure=True, auto_white_balance=True,
+            serial_number=cfg.orbbec_sn,
+            resize_width=640, resize_height=480,
         )
-        logger.info("Orbbec camera attached as 'top'")
+        logger.info(f"Orbbec camera attached as 'top' (SN={cfg.orbbec_sn or 'auto'})")
+
+    if cfg.use_realsense_camera:
+        sn = cfg.realsense_sn or ""
+        cfg.robot.cameras["realsense"] = RealSenseCameraConfig(
+            serial_number_or_name=sn,
+            fps=30, width=640, height=480,
+            color_mode=ColorMode.RGB,
+        )
+        logger.info(f"RealSense camera attached (SN={sn or 'auto'})")
 
     logging.info(pformat(asdict(cfg)))
 
