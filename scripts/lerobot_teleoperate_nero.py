@@ -39,18 +39,21 @@ Usage:
         --robot.type=nero --teleop.type=nero_gamepad \
         --use_orbbec_camera=true --display_cameras=true
 
-    python scripts/lerobot_teleoperate_nero.py \ 
-        --robot.type=nero \
-        --teleop.type=nero_gamepad \   
-        --use_orbbec_camera=true \
-        --display_cameras=true \
-        --robot.motion_mode=js 
+    python scripts/lerobot_teleoperate_nero.py \
+    --robot.type=nero --teleop.type=nero_gamepad \
+    --use_orbbec_camera=true --orbbec_crop_width=640 \ 
+    --orbbec_crop_height=480 --orbbec_crop_y_offset=10 \ 
+    --orbbec_sn=CL87B530020 \
+    --display_cameras=true --robot.motion_mode=js \
 
 
 """
 
-import logging
 import os
+
+os.environ.setdefault("ORBBEC_SDK_DISABLE_UVC", "1")
+
+import logging
 import time
 from dataclasses import asdict, dataclass
 from pprint import pformat
@@ -90,6 +93,12 @@ class NeroTeleoperateConfig:
     display_cameras: bool = False
     use_orbbec_camera: bool = False
     orbbec_sn: str | None = None
+    orbbec_width: int = 1280
+    orbbec_height: int = 960
+    orbbec_crop_width: int | None = None
+    orbbec_crop_height: int | None = None
+    orbbec_crop_x_offset: int | None = None
+    orbbec_crop_y_offset: int | None = None
     use_realsense_camera: bool = False
     realsense_sn: str | None = None
     display_ip: str | None = None
@@ -146,6 +155,7 @@ def nero_teleop_loop(
     while True:
         loop_start = time.perf_counter()
 
+        robot.get_observation()
         raw_action = teleop.get_action()
         events = teleop.get_teleop_events()
 
@@ -238,13 +248,14 @@ def teleoperate(cfg: NeroTeleoperateConfig):
 
     if cfg.use_orbbec_camera:
         cfg.robot.cameras["top"] = OrbbecCameraConfig(
-            fps=30, width=1280, height=720,
+            fps=30, width=cfg.orbbec_width, height=cfg.orbbec_height,
             color_mode=ColorMode.RGB, warmup_s=2,
             auto_exposure=True, auto_white_balance=True,
             serial_number=cfg.orbbec_sn,
-            resize_width=640, resize_height=480,
+            crop_width=cfg.orbbec_crop_width, crop_height=cfg.orbbec_crop_height,
+            crop_x_offset=cfg.orbbec_crop_x_offset, crop_y_offset=cfg.orbbec_crop_y_offset,
         )
-        logger.info(f"Orbbec camera attached as 'top' (SN={cfg.orbbec_sn or 'auto'})")
+        logger.info(f"Orbbec camera attached as 'top' (SN={cfg.orbbec_sn or 'auto'}, {cfg.orbbec_width}x{cfg.orbbec_height} -> {cfg.orbbec_crop_width or cfg.orbbec_width}x{cfg.orbbec_crop_height or cfg.orbbec_height})")
 
     if cfg.use_realsense_camera:
         sn = cfg.realsense_sn or ""
@@ -252,8 +263,9 @@ def teleoperate(cfg: NeroTeleoperateConfig):
             serial_number_or_name=sn,
             fps=30, width=640, height=480,
             color_mode=ColorMode.RGB,
+            warmup_s=5,
         )
-        logger.info(f"RealSense camera attached (SN={sn or 'auto'})")
+        logger.info(f"RealSense camera attached (SN={sn or 'auto'}, warmup=5s)")
 
     logging.info(pformat(asdict(cfg)))
 

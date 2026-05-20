@@ -23,17 +23,23 @@
     Esc        → 停止所有录制, 退出
 
 Usage:
-    python scripts/lerobot_record_nero.py \
-        --robot.type=nero --teleop.type=nero_gamepad \
-        --use_orbbec_camera=true \
-        --display_cameras=true \
-        --dataset.repo_id=nero_pick_cup \
-        --dataset.num_episodes=50 \
-        --dataset.single_task="pick up the cup"
+python scripts/lerobot_record_nero.py \
+    --robot.type=nero --teleop.type=nero_gamepad \
+    --use_orbbec_camera=true --orbbec_sn=CL87B530020  \
+    --orbbec_crop_width=640 --orbbec_crop_height=480 \
+    --orbbec_crop_y_offset=10 \
+    --use_realsense_camera=true --realsense_sn=243622072771 \
+    --display_cameras=true     \
+    --dataset.repo_id=nero_dual_cam_task   \
+    --dataset.single_task="pick up the cup"  \
+    --dataset.num_episodes=10 \
 """
 
-import logging
 import os
+
+os.environ.setdefault("ORBBEC_SDK_DISABLE_UVC", "1")
+
+import logging
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -84,6 +90,12 @@ class NeroRecordConfig:
     fps: int = 30
     use_orbbec_camera: bool = False
     orbbec_sn: str | None = None
+    orbbec_width: int = 1280
+    orbbec_height: int = 960
+    orbbec_crop_width: int | None = None
+    orbbec_crop_height: int | None = None
+    orbbec_crop_x_offset: int | None = None
+    orbbec_crop_y_offset: int | None = None
     use_realsense_camera: bool = False
     realsense_sn: str | None = None
     display_cameras: bool = False
@@ -187,19 +199,23 @@ def idle_loop(
     Returns: "start" | "stop" | "stop_recording"
     """
     control_interval = 1 / fps
+    teleop.clear_events()
     while True:
         loop_start = time.perf_counter()
 
         if events["stop_recording"]:
             return "stop"
 
+        robot.get_observation()
         teleop.get_action()
 
-        if teleop.is_start_pressed():
+        start_pressed = teleop.is_start_pressed()
+        if start_pressed:
+            teleop.clear_events()
             return "start"
         if events.get("exit_early"):
             events["exit_early"] = False
-            return "start"
+            return "stop"
 
         teleop_events = teleop.get_teleop_events()
         if teleop_events.get(TeleopEvents.SUCCESS):
@@ -241,12 +257,16 @@ def recording_loop(
     last_obs: dict | None = None
     frame_count = 0
     start_t = time.perf_counter()
+    teleop.clear_events()
 
     while True:
         loop_start = time.perf_counter()
 
         if events["stop_recording"]:
             return "stop"
+
+        obs = _safe_get_observation(robot, last_obs)
+        last_obs = obs
 
         teleop.get_action()
 
@@ -269,9 +289,6 @@ def recording_loop(
                 _sync_ik_from_robot(teleop, robot)
 
         action = _do_teleop_step(teleop, robot)
-
-        obs = _safe_get_observation(robot, last_obs)
-        last_obs = obs
 
         if obs and action:
             observation_frame = build_dataset_frame(dataset.features, obs, prefix=OBS_STR)
@@ -305,13 +322,14 @@ def record(cfg: NeroRecordConfig):
 
     if cfg.use_orbbec_camera:
         cfg.robot.cameras["top"] = OrbbecCameraConfig(
-            fps=30, width=1280, height=720,
+            fps=30, width=cfg.orbbec_width, height=cfg.orbbec_height,
             color_mode=ColorMode.RGB, warmup_s=2,
             auto_exposure=True, auto_white_balance=True,
             serial_number=cfg.orbbec_sn,
-            resize_width=640, resize_height=480,
+            crop_width=cfg.orbbec_crop_width, crop_height=cfg.orbbec_crop_height,
+            crop_x_offset=cfg.orbbec_crop_x_offset, crop_y_offset=cfg.orbbec_crop_y_offset,
         )
-        logger.info(f"Orbbec camera attached as 'top' (SN={cfg.orbbec_sn or 'auto'})")
+        logger.info(f"Orbbec camera attached as 'top' (SN={cfg.orbbec_sn or 'auto'}, {cfg.orbbec_width}x{cfg.orbbec_height} -> {cfg.orbbec_crop_width or cfg.orbbec_width}x{cfg.orbbec_crop_height or cfg.orbbec_height})")
 
     if cfg.use_realsense_camera:
         sn = cfg.realsense_sn or ""
@@ -319,8 +337,9 @@ def record(cfg: NeroRecordConfig):
             serial_number_or_name=sn,
             fps=30, width=640, height=480,
             color_mode=ColorMode.RGB,
+            warmup_s=5,
         )
-        logger.info(f"RealSense camera attached (SN={sn or 'auto'})")
+        logger.info(f"RealSense camera attached (SN={sn or 'auto'}, warmup=5s)")
 
     cfg.robot.motion_mode = "js"
     logger.info("Motion mode forced to 'js' (servo mode) for teleoperation")
