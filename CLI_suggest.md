@@ -11,7 +11,6 @@ python scripts/lerobot_teleoperate_nero.py \
     --use_orbbec_camera=true \
     --orbbec_crop_width=640 \
     --orbbec_crop_height=480 \
-    --orbbec_crop_y_offset=10 \
     --orbbec_sn=CL87B530020 \
     --use_realsense_camera=true \
     --realsense_sn=243622072771 --display_cameras=true \
@@ -45,4 +44,34 @@ lerobot-replay --robot.type=nero \
 lerobot-dataset-viz --repo-id nero_dual_cam_task_20260520_124142 \
     --root ../nero_data/dataset/20260520_124142/nero_dual_cam_task_20260520_124142/ \
     --episode-index 2 --mode local
+```
+
+## 训练
+```bash
+lerobot-train     
+    --dataset.repo_id=two-cube-stack     \
+    --dataset.root=/home/blzgz/nero_data/dataset/20260524_113529/two-cube-stack_20260524_113529   \
+    --policy.type=diffusion     \
+    --wandb.enable=true     \
+    --wandb.project=nero-two-cube-stack    \
+    --policy.n_obs_steps=3     \
+    --batch_size=4     \
+    --steps=100000    \
+    --save_freq=20000     \
+    --eval_freq=20000     \
+    --policy.push_to_hub=false    \
+    --output_dir=outputs/two-cube-stack_diffusion    \
+    --job_name=two-cube-stack-diffusion
+```
+
+## 实机推理
+
+```bash
+python scripts/lerobot_inference_nero.py     \
+    --policy_path=outputs/two-cube-stack_diffusion/checkpoints/100000/pretrained_model     \
+    --dataset_root=/home/blzgz/lerobot_nero_orbbec/dataset/20260524_113529/two-cube-stack_20260524_113529     \
+    --dataset_repo_id=two-cube-stack_20260524_113529  \
+    --n_episodes=1     \
+    --display_cameras     \
+    --num_inference_steps=15
 ```
