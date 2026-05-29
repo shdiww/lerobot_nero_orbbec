@@ -16,6 +16,20 @@ python scripts/lerobot_teleoperate_nero.py \
     --realsense_sn=243622072771 --display_cameras=true \
     --robot.motion_mode=js
 ```
+
+## pico遥操作
+```bash
+python scripts/lerobot_teleoperate_nero_pico.py \
+    --robot.type=nero --teleop.type=pico_vr \
+    --use_orbbec_camera=true \
+    --orbbec_crop_width=640 \
+    --orbbec_crop_height=480 \
+    --orbbec_sn=CL87B530020 \
+    --use_realsense_camera=true \
+    --realsense_sn=243622072771 --display_cameras=true \
+    --robot.motion_mode=js
+```
+
 ## 数据集录制
 ```bash
 python scripts/lerobot_record_nero.py  \
@@ -64,11 +78,11 @@ lerobot-train
     --job_name=two-cube-stack-diffusion
 ```
 
-## 实机推理
+## 实机推理     # --policy_path=outputs/two-cube-stack_diffusion/checkpoints/100000/pretrained_model     \
 
 ```bash
 python scripts/lerobot_inference_nero.py     \
-    --policy_path=outputs/two-cube-stack_diffusion/checkpoints/100000/pretrained_model     \
+    --policy_path=pretrained_model \
     --dataset_root=/home/blzgz/lerobot_nero_orbbec/dataset/20260524_113529/two-cube-stack_20260524_113529     \
     --dataset_repo_id=two-cube-stack_20260524_113529  \
     --n_episodes=1     \

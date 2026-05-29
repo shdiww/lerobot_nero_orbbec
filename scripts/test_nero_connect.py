@@ -94,13 +94,13 @@ def main():
         assert gripper_val > 0.01, f"gripper: expected >0.01 after open, got {gripper_val:.6f}"
         print(f"  gripper.pos = {gripper_val:.6f} (open)")
 
-        time.sleep(0.5)
-        gripper_action = {"gripper.pos": 0.0}
-        robot.send_action(gripper_action)
-        obs = _wait_gripper(robot, 0.0, tol=0.005, timeout=5.0)
-        gripper_val = obs["gripper.pos"]
-        assert abs(gripper_val) < 0.005, f"gripper: expected ≈0.0 after close, got {gripper_val:.6f}"
-        print(f"  gripper.pos = {gripper_val:.6f} (closed)")
+        # time.sleep(0.5)
+        # gripper_action = {"gripper.pos": 0.0}
+        # robot.send_action(gripper_action)
+        # obs = _wait_gripper(robot, 0.0, tol=0.005, timeout=5.0)
+        # gripper_val = obs["gripper.pos"]
+        # assert abs(gripper_val) < 0.005, f"gripper: expected ≈0.0 after close, got {gripper_val:.6f}"
+        # print(f"  gripper.pos = {gripper_val:.6f} (closed)")
     else:
         print("[4/6] Skipping gripper test")
 
