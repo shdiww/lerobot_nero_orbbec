@@ -1,5 +1,13 @@
 #!/usr/bin/env python
-"""简单测试 Pico VR 按键. 直接读取 SDK 原始值."""
+"""Pico VR 原始按键/摇杆/位姿数据读取测试.
+
+直接调用 xrobotoolkit_sdk API（不经过 LeRobot），
+读取并打印所有按键、摇杆、握柄、扳机、控制器位姿的原始值。
+用于验证 SDK 底层数据通道是否正常。
+
+Usage:
+    python scripts/test_pico_buttons.py
+"""
 
 import time
 

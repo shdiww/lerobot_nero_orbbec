@@ -1,5 +1,20 @@
 #!/usr/bin/env python
-"""用 PicoVRController 类测试按键 + 6D delta (与遥操作完全相同的代码路径)."""
+"""PicoVRController 类按键 + 6D delta 集成测试.
+
+使用与遥操作完全相同的代码路径（PicoVRController），
+验证按键事件、6D 位姿追踪 delta、夹爪命令的完整链路。
+
+按键说明:
+    Grip (>0.9)  → 激活 6D 追踪
+    A / B        → 夹爪增量
+    X            → Home 请求
+    Y            → Episode 成功
+    右 Menu      → 开始录制
+    左 Menu      → 结束录制
+
+Usage:
+    python scripts/test_pico_buttons_teleop.py
+"""
 
 import sys
 import time

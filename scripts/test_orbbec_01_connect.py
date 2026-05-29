@@ -1,4 +1,11 @@
-"""测试 1: Orbbec 相机连接和断开"""
+"""Orbbec 相机连接与断开基础测试.
+
+验证 pyorbbecsdk Pipeline 的创建、启动、停止生命周期。
+不需要 LeRobot，直接调用 SDK API。
+
+Usage:
+    python scripts/test_orbbec_01_connect.py
+"""
 import pyorbbecsdk
 
 

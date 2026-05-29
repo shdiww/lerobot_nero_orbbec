@@ -1,4 +1,11 @@
-"""测试 4: Orbbec 相机后台线程 + async_read 模式"""
+"""Orbbec 相机后台线程异步读帧 + 延迟测量.
+
+启动后台线程持续读帧，主线程通过 Event 等待新帧通知。
+测量主线程收到新帧的延迟（帧产生时间 → 主线程读取时间的差值）。
+
+Usage:
+    python scripts/test_orbbec_04_async_read.py
+"""
 import time
 import threading
 import numpy as np

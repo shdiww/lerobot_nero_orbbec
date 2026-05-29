@@ -1,3 +1,11 @@
+"""Orbbec RGB + Depth 对齐流实时显示.
+
+直接调用 pyorbbecsdk SDK（不经过 LeRobot），实时显示 RGB 和深度图伪彩色画面。
+按 'q' 退出。用于验证 SDK 底层 RGB+Depth 对齐流是否正常。
+
+Usage:
+    python scripts/test_orbbec_camera.py
+"""
 import cv2
 import numpy as np
 from pyorbbecsdk import Pipeline, Config, OBSensorType, OBFormat, OBAlignMode

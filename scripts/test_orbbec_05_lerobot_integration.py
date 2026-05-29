@@ -1,4 +1,11 @@
-"""测试 5: OrbbecCamera LeRobot 集成验证"""
+"""OrbbecCamera LeRobot 集成验证.
+
+测试 OrbbecCamera 作为 LeRobot Camera 子类的完整接口:
+    find_cameras → 创建实例 → connect → read/async_read/read_latest → disconnect
+
+Usage:
+    python scripts/test_orbbec_05_lerobot_integration.py
+"""
 import cv2
 import numpy as np
 from lerobot.cameras.orbbec import OrbbecCamera, OrbbecCameraConfig

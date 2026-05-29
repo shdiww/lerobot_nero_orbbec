@@ -1,6 +1,25 @@
-"""Nero 机械臂推理脚本 — 加载训练好的策略模型，在真实机器人上执行。
+"""Nero 机械臂推理脚本 — 加载训练好的策略模型，在真实机器人上执行闭环控制。
 
-用法:
+数据流:
+    robot.get_observation()
+        → robot_obs_to_policy_obs()  → 预处理 (preprocessor)
+        → policy.select_action()     → 后处理 (postprocessor)
+        → action_tensor_to_dict()    → robot.send_action()
+
+    每个episode: reset策略 → 循环观测→推理→执行 → go home
+
+参数:
+    --policy_path         模型 checkpoint 路径 (必需)
+    --dataset_root        数据集本地路径 (用于加载 metadata)
+    --dataset_repo_id     数据集 repo ID
+    --n_episodes          执行 episode 数 (默认 5)
+    --fps                 控制循环频率 (默认 30)
+    --num_inference_steps Diffusion 去噪步数, 越少越快 (默认 10)
+    --max_steps           每 episode 最大步数 (默认 800)
+    --device              推理设备 (默认 cuda)
+    --display_cameras     显示相机画面
+
+Usage:
     python scripts/lerobot_inference_nero.py \
         --policy_path=outputs/two-cube-stack_act/checkpoints/100000/pretrained_model \
         --dataset_root=/home/blzgz/nero_data/dataset/20260524_113529/two-cube-stack_20260524_113529 \

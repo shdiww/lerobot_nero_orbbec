@@ -1,4 +1,11 @@
-"""测试 6: OrbbecCamera 在 Nero 机器人框架下工作"""
+"""OrbbecCamera 在 Nero 机器人框架下工作测试.
+
+模拟 Nero 机器人的相机配置 → make_cameras_from_configs 工厂创建 →
+连接/读帧/断开，验证与 Nero 框架的集成。
+
+Usage:
+    python scripts/test_orbbec_06_nero_framework.py
+"""
 import time
 import cv2
 import numpy as np

@@ -1,4 +1,11 @@
-"""测试 3: Orbbec 相机连续读帧 + 帧率测量"""
+"""Orbbec 相机连续读帧 + 帧率测量.
+
+读取 100 帧计算平均 FPS，验证是否达到 30fps 目标。
+若 FPS 偏低或超时频繁，可能是 USB 带宽不足。
+
+Usage:
+    python scripts/test_orbbec_03_fps.py
+"""
 import time
 import numpy as np
 import pyorbbecsdk

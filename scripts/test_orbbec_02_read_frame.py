@@ -1,4 +1,11 @@
-"""测试 2: Orbbec 相机读单帧 + 自动曝光/白平衡"""
+"""Orbbec 相机单帧读取 + 自动曝光/白平衡测试.
+
+验证彩色流配置、自动曝光/白平衡设置、帧读取、RGB→BGR 转换。
+保存一帧到 /tmp/orbbec_test_frame.png 用于目视检查颜色。
+
+Usage:
+    python scripts/test_orbbec_02_read_frame.py
+"""
 import cv2
 import numpy as np
 import pyorbbecsdk
