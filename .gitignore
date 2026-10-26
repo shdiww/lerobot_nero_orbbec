@@ -2,5 +2,10 @@ dataset/
 data/
 outputs/
 Log/
-*.log*.tar.gz
+*.log
+*.tar.gz
 *.tar
+.mimosa/
+.v2c/
+.vscode/
+model_2.tar.gz
