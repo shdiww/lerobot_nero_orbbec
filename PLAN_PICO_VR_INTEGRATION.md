@@ -60,7 +60,7 @@ Nero(Robot).send_action() → 机械臂运动
 
 ### Step 1: 创建 `pico_vr` teleoperator 模块
 
-**文件**: `lerobot/src/lerobot/teleoperators/pico_vr/pico_vr_utils.py`
+**文件**: `thirdparty/lerobot/src/lerobot/teleoperators/pico_vr/pico_vr_utils.py`
 
 `PicoVRController` 类：
 - 封装 `xrobotoolkit_sdk`，延迟 import
@@ -77,7 +77,7 @@ Nero(Robot).send_action() → 机械臂运动
 **坐标系变换**: `R_HEADSET_TO_WORLD = [[0,0,-1],[-1,0,0],[0,1,0]]`
 **四元数计算**: 用 `scipy.spatial.transform.Rotation`，不引入 meshcat
 
-**文件**: `lerobot/src/lerobot/teleoperators/pico_vr/configuration_pico_vr.py`
+**文件**: `thirdparty/lerobot/src/lerobot/teleoperators/pico_vr/configuration_pico_vr.py`
 
 ```python
 @TeleoperatorConfig.register_subclass("pico_vr")
@@ -97,13 +97,13 @@ class NeroPicoVRConfig(TeleoperatorConfig):
     home_joint_angles: list[float] = ...
 ```
 
-**文件**: `lerobot/src/lerobot/teleoperators/pico_vr/teleop_pico_vr.py`
+**文件**: `thirdparty/lerobot/src/lerobot/teleoperators/pico_vr/teleop_pico_vr.py`
 
 `NeroPicoVR(Teleoperator)` 类：
 - 与 NeroGamepad 相同的 action_features、TracIKAdapter、solve_ik_from_deltas
 - 区别仅在 get_action() 从 PicoVRController 读取 deltas
 
-**文件**: `lerobot/src/lerobot/teleoperators/pico_vr/__init__.py`
+**文件**: `thirdparty/lerobot/src/lerobot/teleoperators/pico_vr/__init__.py`
 
 ### Step 2: 注册 teleoperator
 

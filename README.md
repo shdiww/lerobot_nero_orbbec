@@ -8,9 +8,10 @@
 
 ```
 lerobot_nero_orbbec/
-├── lerobot/            # LeRobot 子模块（fork，含 nero/orbbec/pico_vr 注册代码）
-├── pyAgxArm/           # Agilex Nero 机械臂 SDK 子模块（CAN 总线控制）
-├── pyorbbecsdk/        # Orbbec 深度相机 SDK 子模块（C++ 编译 + pybind11）
+├── thirdparty/         # 第三方子模块目录
+│   ├── lerobot/        # LeRobot fork（含 nero/orbbec/pico_vr 注册代码）
+│   ├── pyAgxArm/       # Agilex Nero 机械臂 SDK（CAN 总线控制）
+│   └── pyorbbecsdk/    # Orbbec 深度相机 SDK（C++ 编译 + pybind11）
 ├── scripts/            # 采集、遥操作、推理、测试脚本
 ├── data_push.py        # 数据集推送 HuggingFace Hub 工具
 ├── pyproject.toml      # 项目环境配置（基于 lerobot pyproject.toml 扩展）
@@ -30,10 +31,10 @@ lerobot_nero_orbbec/
 
 | 组件 | 注册类型 | 路径 |
 |------|----------|------|
-| Nero 机器人 | `RobotConfig.register_subclass("nero")` | `lerobot/src/lerobot/robots/nero/` |
-| Orbbec 相机 | `CameraConfig.register_subclass("orbbec")` | `lerobot/src/lerobot/cameras/orbbec/` |
-| Nero 手柄遥操作 | `TeleoperatorConfig.register_subclass("nero_gamepad")` | `lerobot/src/lerobot/teleoperators/nero_gamepad/` |
-| Pico VR 遥操作 | `TeleoperatorConfig.register_subclass("pico_vr")` | `lerobot/src/lerobot/teleoperators/pico_vr/` |
+| Nero 机器人 | `RobotConfig.register_subclass("nero")` | `thirdparty/lerobot/src/lerobot/robots/nero/` |
+| Orbbec 相机 | `CameraConfig.register_subclass("orbbec")` | `thirdparty/lerobot/src/lerobot/cameras/orbbec/` |
+| Nero 手柄遥操作 | `TeleoperatorConfig.register_subclass("nero_gamepad")` | `thirdparty/lerobot/src/lerobot/teleoperators/nero_gamepad/` |
+| Pico VR 遥操作 | `TeleoperatorConfig.register_subclass("pico_vr")` | `thirdparty/lerobot/src/lerobot/teleoperators/pico_vr/` |
 
 ### 数据流架构
 
@@ -110,7 +111,7 @@ uv sync --extra intelrealsense
 ### Step 4: 安装 pyAgxArm（机械臂 SDK）
 
 ```bash
-uv pip install -e ./pyAgxArm
+uv pip install -e ./thirdparty/pyAgxArm
 ```
 
 ### Step 5: 编译并安装 pyorbbecsdk（Orbbec 相机 SDK）
@@ -120,7 +121,7 @@ uv pip install -e ./pyAgxArm
 uv pip install pybind11
 
 # C++ 编译（必须用 uv 环境的 pybind11 和 Python，不能用系统级的）
-cd pyorbbecsdk
+cd thirdparty/pyorbbecsdk
 rm -rf build && mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release \
   -Dpybind11_DIR=$(/home/blzgz/lerobot_nero_orbbec/.venv/bin/python -c "import pybind11; print(pybind11.get_cmake_dir())") \
@@ -130,10 +131,10 @@ make install
 cd ../..
 
 # 安装 Python 包（必须用非 editable 模式，否则 .so 不会被正确加载）
-uv pip install ./pyorbbecsdk
+uv pip install ./thirdparty/pyorbbecsdk
 ```
 
-> **关键**：pyorbbecsdk **必须用非 editable 模式**安装（`uv pip install ./pyorbbecsdk`，不加 `-e`）。editable 模式会导致 Python 从源码目录加载而非 `install/lib/`，找不到 `.so` 文件。
+> **关键**：pyorbbecsdk **必须用非 editable 模式**安装（`uv pip install ./thirdparty/pyorbbecsdk`，不加 `-e`）。editable 模式会导致 Python 从源码目录加载而非 `install/lib/`，找不到 `.so` 文件。
 
 ### Step 6: 安装 XRoboToolkit SDK（Pico VR 遥操作）
 
@@ -375,8 +376,8 @@ python data_push.py
 ```bash
 # 安装依赖
 uv sync --extra pusht --extra diffusion --extra dataset --extra training
-uv pip install -e ./pyAgxArm  # uv sync 会覆盖，需重装
-uv pip install ./pyorbbecsdk  # 同上
+uv pip install -e ./thirdparty/pyAgxArm  # uv sync 会覆盖，需重装
+uv pip install ./thirdparty/pyorbbecsdk  # 同上
 uv pip install "httpx[socks]" # 代理支持
 uv pip install "pymunk>=6.6.0,<6.7.0"  # gym-pusht 兼容
 
@@ -418,10 +419,10 @@ lerobot-eval \
 | 改什么 | 去哪改 |
 |--------|--------|
 | 超参（lr, steps, batch_size） | 命令行 `--steps`, `--batch_size`, `--policy.optimizer_lr` |
-| Diffusion 专属参数 | `lerobot/src/lerobot/policies/diffusion/configuration_diffusion.py` |
-| U-Net 网络结构 | `lerobot/src/lerobot/policies/diffusion/modeling_diffusion.py` |
-| 数据预处理 | `lerobot/src/lerobot/policies/diffusion/processor_diffusion.py` |
-| 训练循环 | `lerobot/src/lerobot/scripts/lerobot_train.py` |
+| Diffusion 专属参数 | `thirdparty/lerobot/src/lerobot/policies/diffusion/configuration_diffusion.py` |
+| U-Net 网络结构 | `thirdparty/lerobot/src/lerobot/policies/diffusion/modeling_diffusion.py` |
+| 数据预处理 | `thirdparty/lerobot/src/lerobot/policies/diffusion/processor_diffusion.py` |
+| 训练循环 | `thirdparty/lerobot/src/lerobot/scripts/lerobot_train.py` |
 
 ## 脚本说明
 
@@ -473,8 +474,8 @@ lerobot-eval \
 `uv sync` 会覆盖手动 `uv pip install` 的包。每次 `uv sync` 后需重新安装：
 
 ```bash
-uv pip install -e ./pyAgxArm
-uv pip install ./pyorbbecsdk
+uv pip install -e ./thirdparty/pyAgxArm
+uv pip install ./thirdparty/pyorbbecsdk
 ```
 
 ### 2. pyorbbecsdk ImportError: cannot import name 'OBFormat'
@@ -483,7 +484,7 @@ uv pip install ./pyorbbecsdk
 
 **解决**：用非 editable 模式安装：
 ```bash
-uv pip install ./pyorbbecsdk  # 不要加 -e
+uv pip install ./thirdparty/pyorbbecsdk  # 不要加 -e
 ```
 
 ### 3. pyorbbecsdk 编译失败：`invalid use of incomplete type 'PyFrameObject'`
@@ -542,7 +543,7 @@ uv pip install "pymunk>=6.6.0,<6.7.0"
 
 **解决**：在 fork 中删除 `.gitignore` 里的 `*.urdf` 规则，然后 `git add -f` 强制添加：
 ```bash
-cd lerobot
+cd thirdparty/lerobot
 git add -f src/lerobot/robots/nero/nero_description/urdf/*.urdf
 git commit -m "fix: track URDF files"
 git push

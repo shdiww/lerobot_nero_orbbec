@@ -1,9 +1,9 @@
 [submodule "pyorbbecsdk"]
-	path = pyorbbecsdk
+	path = thirdparty/pyorbbecsdk
 	url = git@github.com:shdiww/pyorbbecsdk_lerobot.git
 [submodule "pyAgxArm"]
-	path = pyAgxArm
+	path = thirdparty/pyAgxArm
 	url = https://github.com/agilexrobotics/pyAgxArm.git
 [submodule "lerobot"]
-	path = lerobot
+	path = thirdparty/lerobot
 	url = https://github.com/shdiww/lerobot_nero.git

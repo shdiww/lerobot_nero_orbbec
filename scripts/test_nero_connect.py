@@ -13,7 +13,7 @@
 前提:
     - CAN 接口已启用 (sudo ip link set can0 up type can bitrate 1000000)
     - Nero 机械臂已上电并连接 CAN 总线
-    - pyAgxArm 已安装 (cd pyAgxArm && uv pip install -e .)
+    - pyAgxArm 已安装 (cd thirdparty/pyAgxArm && uv pip install -e .)
 
 预期现象:
     [1/6] is_connected = True

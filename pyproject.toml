@@ -27,7 +27,7 @@ discord = "https://discord.gg/s3KuuzsPFb"
 name = "lerobot"
 version = "0.5.2"
 description = "🤗 LeRobot: State-of-the-art Machine Learning for Real-World Robotics in Pytorch"
-readme = { file = "lerobot/README.md", content-type = "text/markdown" }
+readme = { file = "thirdparty/lerobot/README.md", content-type = "text/markdown" }
 license = { text = "Apache-2.0" }
 requires-python = ">=3.12"
 authors = [
@@ -324,7 +324,7 @@ torchvision = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux'" }]
 lerobot = ["envs/*.json"]
 
 [tool.setuptools.packages.find]
-where = ["lerobot/src"]
+where = ["thirdparty/lerobot/src"]
 
 [tool.ruff]
 target-version = "py312"

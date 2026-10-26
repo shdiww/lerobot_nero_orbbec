@@ -19,7 +19,7 @@ Usage:
 import sys
 import time
 
-sys.path.insert(0, "lerobot/src")
+sys.path.insert(0, "thirdparty/lerobot/src")
 
 import xrobotoolkit_sdk as xrt
 
