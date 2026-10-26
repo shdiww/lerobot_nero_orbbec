@@ -25,14 +25,21 @@
 Usage:
 python scripts/lerobot_record_nero.py \
     --robot.type=nero --teleop.type=nero_gamepad \
-    --use_orbbec_camera=true --orbbec_sn=CL87B530020  \
+    --use_orbbec_camera=true --orbbec_sn=<FEMTO_BOLT_SN>  \
     --orbbec_crop_width=640 --orbbec_crop_height=480 \
     --orbbec_crop_y_offset=10 \
-    --use_realsense_camera=true --realsense_sn=243622072771 \
+    --use_orbbec_wrist_camera=true --orbbec_wrist_sn=<GEMINI_SN> \
+    --eef_pose_state=true \
     --display_cameras=true     \
-    --dataset.repo_id=nero_dual_cam_task   \
+    --dataset.repo_id=nero_eef_task   \
     --dataset.single_task="pick up the cup"  \
-    --dataset.num_episodes=10 \
+    --dataset.num_episodes=10
+
+EEF pose 模式 (--eef_pose_state=true):
+    observation.state / action 各 10 维:
+    [eef.x, eef.y, eef.z, eef.r00..r02, eef.r10..r12, gripper.pos]
+    位置为 base_link 系米制, 旋转为 6D 连续表示 (旋转矩阵前两行),
+    由 TracIK FK 从关节角换算 (不用 euler: Nero 工具朝向贴 euler 卷绕边界).
 """
 
 import os
@@ -76,6 +83,8 @@ from lerobot.utils.feature_utils import build_dataset_frame, combine_feature_dic
 from lerobot.utils.robot_utils import precise_sleep
 from lerobot.utils.utils import init_logging
 
+from nero_eef_utils import joints_to_eef_dict, make_eef_action_features
+
 logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -96,8 +105,17 @@ class NeroRecordConfig:
     orbbec_crop_height: int | None = None
     orbbec_crop_x_offset: int | None = None
     orbbec_crop_y_offset: int | None = None
+    use_orbbec_wrist_camera: bool = False
+    orbbec_wrist_sn: str | None = None
+    orbbec_wrist_width: int = 640
+    orbbec_wrist_height: int = 480
+    orbbec_wrist_crop_width: int | None = None
+    orbbec_wrist_crop_height: int | None = None
+    orbbec_wrist_crop_x_offset: int | None = None
+    orbbec_wrist_crop_y_offset: int | None = None
     use_realsense_camera: bool = False
     realsense_sn: str | None = None
+    eef_pose_state: bool = False
     display_cameras: bool = False
     display_data: bool = False
     resume: bool = False
@@ -248,9 +266,14 @@ def recording_loop(
     dataset: LeRobotDataset,
     single_task: str | None = None,
     display_cameras: bool = False,
+    eef_pose_state: bool = False,
 ) -> str:
     """录制循环: 持续录制直到 Back/→/Esc.
-    
+
+    eef_pose_state=True 时, observation.state / action 记录末端位姿 (FK 换算):
+        observation.state = FK(实测关节角) + gripper
+        action            = FK(下发目标关节角) + gripper
+
     Returns: "end_episode" | "rerecord" | "stop"
     """
     control_interval = 1 / fps
@@ -291,8 +314,25 @@ def recording_loop(
         action = _do_teleop_step(teleop, robot)
 
         if obs and action:
-            observation_frame = build_dataset_frame(dataset.features, obs, prefix=OBS_STR)
-            action_frame = build_dataset_frame(dataset.features, action, prefix=ACTION)
+            if eef_pose_state:
+                measured_joints = [obs.get(f"{name}.pos") for name in NERO_JOINT_NAMES]
+                if any(v is None for v in measured_joints):
+                    measured_joints = teleop.get_joint_angles()
+                obs_values = {
+                    **joints_to_eef_dict(teleop.ik_solver, measured_joints),
+                    "gripper.pos": obs.get("gripper.pos", 0.0),
+                    **{k: obs[k] for k in robot.cameras if k in obs},
+                }
+                action_values = {
+                    **joints_to_eef_dict(teleop.ik_solver, teleop.get_joint_angles()),
+                    "gripper.pos": action.get("gripper.pos", 0.0),
+                }
+            else:
+                obs_values = obs
+                action_values = action
+
+            observation_frame = build_dataset_frame(dataset.features, obs_values, prefix=OBS_STR)
+            action_frame = build_dataset_frame(dataset.features, action_values, prefix=ACTION)
             frame = {**observation_frame, **action_frame, "task": single_task}
             dataset.add_frame(frame)
             frame_count += 1
@@ -331,6 +371,17 @@ def record(cfg: NeroRecordConfig):
         )
         logger.info(f"Orbbec camera attached as 'top' (SN={cfg.orbbec_sn or 'auto'}, {cfg.orbbec_width}x{cfg.orbbec_height} -> {cfg.orbbec_crop_width or cfg.orbbec_width}x{cfg.orbbec_crop_height or cfg.orbbec_height})")
 
+    if cfg.use_orbbec_wrist_camera:
+        cfg.robot.cameras["wrist"] = OrbbecCameraConfig(
+            fps=30, width=cfg.orbbec_wrist_width, height=cfg.orbbec_wrist_height,
+            color_mode=ColorMode.RGB, warmup_s=2,
+            auto_exposure=True, auto_white_balance=True,
+            serial_number=cfg.orbbec_wrist_sn,
+            crop_width=cfg.orbbec_wrist_crop_width, crop_height=cfg.orbbec_wrist_crop_height,
+            crop_x_offset=cfg.orbbec_wrist_crop_x_offset, crop_y_offset=cfg.orbbec_wrist_crop_y_offset,
+        )
+        logger.info(f"Orbbec wrist camera attached as 'wrist' (SN={cfg.orbbec_wrist_sn or 'auto'}, {cfg.orbbec_wrist_width}x{cfg.orbbec_wrist_height} -> {cfg.orbbec_wrist_crop_width or cfg.orbbec_wrist_width}x{cfg.orbbec_wrist_crop_height or cfg.orbbec_wrist_height})")
+
     if cfg.use_realsense_camera:
         sn = cfg.realsense_sn or ""
         cfg.robot.cameras["realsense"] = RealSenseCameraConfig(
@@ -355,15 +406,25 @@ def record(cfg: NeroRecordConfig):
     teleop = make_teleoperator_from_config(cfg.teleop)
 
     _t, _r, _o = make_default_processors()
+
+    if cfg.eef_pose_state:
+        # EEF pose 模式: state/action 记末端位姿 (FK 换算), 不记录关节角
+        action_features = make_eef_action_features(use_gripper=True)
+        observation_features = {**action_features, **robot._cameras_ft}
+        logger.info("EEF pose state mode enabled (observation.state/action = [x,y,z,roll,pitch,yaw,gripper])")
+    else:
+        action_features = robot.action_features
+        observation_features = robot.observation_features
+
     dataset_features = combine_feature_dicts(
         aggregate_pipeline_dataset_features(
             pipeline=_t,
-            initial_features=create_initial_features(action=robot.action_features),
+            initial_features=create_initial_features(action=action_features),
             use_videos=cfg.dataset.video,
         ),
         aggregate_pipeline_dataset_features(
             pipeline=_o,
-            initial_features=create_initial_features(observation=robot.observation_features),
+            initial_features=create_initial_features(observation=observation_features),
             use_videos=cfg.dataset.video,
         ),
     )
@@ -412,6 +473,12 @@ def record(cfg: NeroRecordConfig):
         robot.connect()
         _sync_ik_from_robot(teleop, robot)
 
+        if cfg.eef_pose_state and teleop.ik_solver is None:
+            raise RuntimeError(
+                "eef_pose_state=true 需要 TracIK (检查 URDF 文件是否为有效 XML, "
+                "LFS 指针文件会导致 'Error document empty')"
+            )
+
         listener, events = init_keyboard_listener()
 
         if not is_headless():
@@ -438,6 +505,7 @@ def record(cfg: NeroRecordConfig):
                     events=events, dataset=dataset,
                     single_task=cfg.dataset.single_task,
                     display_cameras=cfg.display_cameras,
+                    eef_pose_state=cfg.eef_pose_state,
                 )
 
                 if result == "rerecord":

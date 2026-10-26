@@ -99,6 +99,14 @@ class NeroTeleoperateConfig:
     orbbec_crop_height: int | None = None
     orbbec_crop_x_offset: int | None = None
     orbbec_crop_y_offset: int | None = None
+    use_orbbec_wrist_camera: bool = False
+    orbbec_wrist_sn: str | None = None
+    orbbec_wrist_width: int = 640
+    orbbec_wrist_height: int = 480
+    orbbec_wrist_crop_width: int | None = None
+    orbbec_wrist_crop_height: int | None = None
+    orbbec_wrist_crop_x_offset: int | None = None
+    orbbec_wrist_crop_y_offset: int | None = None
     use_realsense_camera: bool = False
     realsense_sn: str | None = None
     display_ip: str | None = None
@@ -256,6 +264,17 @@ def teleoperate(cfg: NeroTeleoperateConfig):
             crop_x_offset=cfg.orbbec_crop_x_offset, crop_y_offset=cfg.orbbec_crop_y_offset,
         )
         logger.info(f"Orbbec camera attached as 'top' (SN={cfg.orbbec_sn or 'auto'}, {cfg.orbbec_width}x{cfg.orbbec_height} -> {cfg.orbbec_crop_width or cfg.orbbec_width}x{cfg.orbbec_crop_height or cfg.orbbec_height})")
+
+    if cfg.use_orbbec_wrist_camera:
+        cfg.robot.cameras["wrist"] = OrbbecCameraConfig(
+            fps=30, width=cfg.orbbec_wrist_width, height=cfg.orbbec_wrist_height,
+            color_mode=ColorMode.RGB, warmup_s=2,
+            auto_exposure=True, auto_white_balance=True,
+            serial_number=cfg.orbbec_wrist_sn,
+            crop_width=cfg.orbbec_wrist_crop_width, crop_height=cfg.orbbec_wrist_crop_height,
+            crop_x_offset=cfg.orbbec_wrist_crop_x_offset, crop_y_offset=cfg.orbbec_wrist_crop_y_offset,
+        )
+        logger.info(f"Orbbec wrist camera attached as 'wrist' (SN={cfg.orbbec_wrist_sn or 'auto'}, {cfg.orbbec_wrist_width}x{cfg.orbbec_wrist_height} -> {cfg.orbbec_wrist_crop_width or cfg.orbbec_wrist_width}x{cfg.orbbec_wrist_crop_height or cfg.orbbec_wrist_height})")
 
     if cfg.use_realsense_camera:
         sn = cfg.realsense_sn or ""
