@@ -4,6 +4,12 @@
 
 支持两种遥操作方式：**Xbox 手柄**（笛卡尔增量 + IK）和 **Pico VR**（6D 位姿追踪 + IK），覆盖数据采集、训练、推理全流程。
 
+## 📺 演示视频
+
+<a href="https://www.bilibili.com/video/BV1h7VH67EZM"><img src="assets/nero_demo_cover.jpg" width="360" alt="真机部署演示封面"></a>
+
+> 点击封面跳转 Bilibili 观看真机部署演示（Diffusion Policy 推理，约 26 秒）
+
 ## 项目结构
 
 ```
@@ -124,8 +130,8 @@ uv pip install pybind11
 cd thirdparty/pyorbbecsdk
 rm -rf build && mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release \
-  -Dpybind11_DIR=$(/home/blzgz/lerobot_nero_orbbec/.venv/bin/python -c "import pybind11; print(pybind11.get_cmake_dir())") \
-  -DPython3_EXECUTABLE=/home/blzgz/lerobot_nero_orbbec/.venv/bin/python
+  -Dpybind11_DIR=$(../../../.venv/bin/python -c "import pybind11; print(pybind11.get_cmake_dir())") \
+  -DPython3_EXECUTABLE=../../../.venv/bin/python
 make -j$(nproc)
 make install
 cd ../..
@@ -141,7 +147,7 @@ uv pip install ./thirdparty/pyorbbecsdk
 Pico VR 遥操作依赖 `xrobotoolkit_sdk`，需手动编译安装：
 
 ```bash
-cd /home/blzgz/XRoboToolkit-Teleop-Sample-Python/dependencies/XRoboToolkit-PC-Service-Pybind
+cd ../XRoboToolkit-Teleop-Sample-Python/dependencies/XRoboToolkit-PC-Service-Pybind
 bash setup_ubuntu.sh
 ```
 
@@ -150,7 +156,7 @@ bash setup_ubuntu.sh
 ### Step 7: 验证安装
 
 ```bash
-/home/blzgz/lerobot_nero_orbbec/.venv/bin/python -c "
+.venv/bin/python -c "
 import pyorbbecsdk; print('pyorbbecsdk OK')
 import pyAgxArm; print('pyAgxArm OK')
 import lerobot; print('lerobot OK')
@@ -279,45 +285,6 @@ python scripts/lerobot_record_nero.py \
 
 键盘快捷键：`Enter`=开始录制，`→`=结束录制，`←`=重录当前 episode，`Esc`=退出
 
-### Pico VR 遥操作
-
-**按键映射（右手控制器）：**
-
-| 按键 | 功能 |
-|------|------|
-| Grip (>0.9) | 激活 6D 位姿追踪（握住移动，松开冻结） |
-| A | 夹爪闭合（增量） |
-| B | 夹爪张开（增量） |
-| X | 回 Home 位置 |
-| Y | 标记成功 + 回 Home |
-| 右 Menu | 开始录制 |
-| 左 Menu | 结束录制 (自动 go home + 保存) |
-
-**纯遥操作：**
-
-```bash
-python scripts/lerobot_teleoperate_nero_pico.py \
-    --robot.type=nero --teleop.type=pico_vr \
-    --display_cameras=true
-```
-
-**数据采集：**
-
-```bash
-python scripts/lerobot_record_nero_pico.py \
-    --robot.type=nero --teleop.type=pico_vr \
-    --use_orbbec_camera=true --orbbec_sn=CL87B530020 \
-    --orbbec_crop_width=640 --orbbec_crop_height=480 \
-    --orbbec_crop_y_offset=10 \
-    --use_realsense_camera=true --realsense_sn=243622072771 \
-    --display_cameras=true \
-    --dataset.repo_id=nero_pico_task \
-    --dataset.single_task="pick up the cup" \
-    --dataset.num_episodes=10
-```
-
-录制流程同 Xbox 手柄，区别在于用 Grip 键激活 6D 追踪，右/左 Menu 键控制录制。
-
 ### 多相机组合
 
 **Orbbec + RealSense 混合：**
@@ -339,7 +306,7 @@ python scripts/lerobot_teleoperate_nero.py \
 ```bash
 python scripts/lerobot_inference_nero.py \
     --policy_path=outputs/two-cube-stack_act/checkpoints/100000/pretrained_model \
-    --dataset_root=/home/blzgz/nero_data/dataset/20260524_113529/two-cube-stack_20260524_113529 \
+    --dataset_root=dataset/20260524_113529/two-cube-stack_20260524_113529 \
     --dataset_repo_id=two-cube-stack_20260524_113529 \
     --n_episodes=10 \
     --display_cameras
@@ -361,47 +328,8 @@ python scripts/lerobot_inference_nero.py \
 
 推理数据流：`get_observation()` → preprocess → `policy.select_action()` → postprocess → `send_action()`
 
-## 数据集推送 HuggingFace Hub
-
-```bash
-python data_push.py
-```
-
-修改 `data_push.py` 中的 `REPO_ID` 和 `LOCAL_ROOT` 为实际值即可。
-
 ## 训练
 
-### 仿真环境验证（PushT）
-
-```bash
-# 安装依赖
-uv sync --extra pusht --extra diffusion --extra dataset --extra training
-uv pip install -e ./thirdparty/pyAgxArm  # uv sync 会覆盖，需重装
-uv pip install ./thirdparty/pyorbbecsdk  # 同上
-uv pip install "httpx[socks]" # 代理支持
-uv pip install "pymunk>=6.6.0,<6.7.0"  # gym-pusht 兼容
-
-# 训练
-lerobot-train \
-  --policy.type=diffusion \
-  --dataset.repo_id=lerobot/pusht \
-  --policy.repo_id=local/pusht_diffusion \
-  --policy.push_to_hub=false \
-  --steps=100000 \
-  --batch_size=8 \
-  --wandb.enable=false \
-  --output_dir=outputs/pusht_diffusion \
-  --save_freq=20000 \
-  --eval_freq=20000
-
-# 评估（需用同步模式，避免 gym-pusht 多进程注册问题）
-lerobot-eval \
-  --policy.path=outputs/pusht_diffusion/checkpoints/100000/pretrained_model \
-  --env.type=pusht \
-  --eval.n_episodes=10 \
-  --eval.use_async_envs=false \
-  --policy.push_to_hub=false
-```
 
 ### 训练参数说明
 
@@ -456,16 +384,6 @@ lerobot-eval \
 | `scripts/test_orbbec_06_nero_framework.py` | OrbbecCamera 在 Nero 框架下的工作测试 |
 | `scripts/test_orbbec_camera.py` | Orbbec RGB + Depth 对齐流实时显示（SDK 直接调用） |
 
-### Pico VR 测试脚本
-
-| 脚本 | 说明 |
-|------|------|
-| `scripts/test_pico_sdk_import.py` | xrobotoolkit_sdk 导入与 API 完整性验证 |
-| `scripts/test_pico_buttons.py` | Pico VR 原始按键/摇杆/位姿数据读取（SDK 直接调用） |
-| `scripts/test_pico_data_read.py` | Pico VR 控制器数据完整读取测试（位姿+按键+摇杆） |
-| `scripts/test_pico_vr_tracking.py` | Pico VR 6D 追踪 + IK 求解终端测试 |
-| `scripts/test_pico_vr_plot.py` | Pico VR 6D 追踪曲线可视化（matplotlib） |
-| `scripts/test_pico_buttons_teleop.py` | PicoVRController 类按键 + 6D delta 集成测试 |
 
 ## 常见问题
 
@@ -515,44 +433,6 @@ uv pip uninstall opencv-python && uv pip install opencv-python
 3. 安装 udev 规则：`sudo apt install librealsense2-udev-rules`
 4. Orbbec 与 uvcvideo 冲突：`export ORBBEC_SDK_DISABLE_UVC=1`
 
-### 6. gym-pusht 评估失败
+### 6. 子模块 URDF 文件丢失
 
-**原因**：`gym-pusht` 注册在多进程中失效，或 `pymunk` 版本不兼容。
-
-**解决**：
-```bash
---eval.use_async_envs=false
-uv pip install "pymunk>=6.6.0,<6.7.0"
-```
-
-### 7. HuggingFace Hub 401 Unauthorized
-
-**原因**：训练完后自动推送模型到 Hub，但未登录。
-
-**解决**：加 `--policy.push_to_hub=false` 禁止推送。
-
-### 8. SOCKS 代理错误
-
-**原因**：环境变量设置了 SOCKS 代理但缺少 `socksio` 包。
-
-**解决**：`uv pip install "httpx[socks]"`
-
-### 9. 子模块 URDF 文件丢失
-
-**原因**：上游 lerobot 的 `.gitignore` 包含 `*.urdf`，pull 后被忽略。
-
-**解决**：在 fork 中删除 `.gitignore` 里的 `*.urdf` 规则，然后 `git add -f` 强制添加：
-```bash
-cd thirdparty/lerobot
-git add -f src/lerobot/robots/nero/nero_description/urdf/*.urdf
-git commit -m "fix: track URDF files"
-git push
-```
-
-### 10. Pico VR 连接失败
-
-**排查**：
-1. 确认 XRoboToolkit PC Service 在后台运行
-2. 确认 Pico 头显与 PC 在同一 WiFi 下
-3. 运行 `scripts/test_pico_sdk_import.py` 验证 SDK 可用
-4. 运行 `scripts/test_pico_buttons.py` 验证原始数据可读
+https://github.com/agilexrobotics/agx_arm_urdf
