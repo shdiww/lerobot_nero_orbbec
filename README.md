@@ -2,7 +2,6 @@
 
 基于 [HuggingFace LeRobot](https://github.com/huggingface/lerobot) v0.5.2 的 Agilex Nero 7-DOF 机械臂 + Orbbec/RealSense 相机集成项目。
 
-支持两种遥操作方式：**Xbox 手柄**（笛卡尔增量 + IK）和 **Pico VR**（6D 位姿追踪 + IK），覆盖数据采集、训练、推理全流程。
 
 ## 📺 演示视频
 
