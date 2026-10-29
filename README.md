@@ -39,7 +39,6 @@ lerobot_nero_orbbec/
 | Nero 机器人 | `RobotConfig.register_subclass("nero")` | `thirdparty/lerobot/src/lerobot/robots/nero/` |
 | Orbbec 相机 | `CameraConfig.register_subclass("orbbec")` | `thirdparty/lerobot/src/lerobot/cameras/orbbec/` |
 | Nero 手柄遥操作 | `TeleoperatorConfig.register_subclass("nero_gamepad")` | `thirdparty/lerobot/src/lerobot/teleoperators/nero_gamepad/` |
-| Pico VR 遥操作 | `TeleoperatorConfig.register_subclass("pico_vr")` | `thirdparty/lerobot/src/lerobot/teleoperators/pico_vr/` |
 
 ### 数据流架构
 
@@ -47,7 +46,7 @@ lerobot_nero_orbbec/
 遥操作输入                    机器人控制
 ┌──────────────┐             ┌──────────────┐
 │  Xbox 手柄    │             │              │
-│  或 Pico VR  │──get_action()──> IK 求解 ──> send_action()──> Nero 机械臂
+│              │──get_action()──> IK 求解 ──> send_action()──> Nero 机械臂
 │              │  (6D delta)   (TracIK)   (joint angles)    (CAN move_js)
 └──────────────┘             └──────────────┘
                                     │
@@ -141,25 +140,13 @@ uv pip install ./thirdparty/pyorbbecsdk
 
 > **关键**：pyorbbecsdk **必须用非 editable 模式**安装（`uv pip install ./thirdparty/pyorbbecsdk`，不加 `-e`）。editable 模式会导致 Python 从源码目录加载而非 `install/lib/`，找不到 `.so` 文件。
 
-### Step 6: 安装 XRoboToolkit SDK（Pico VR 遥操作）
-
-Pico VR 遥操作依赖 `xrobotoolkit_sdk`，需手动编译安装：
-
-```bash
-cd ../XRoboToolkit-Teleop-Sample-Python/dependencies/XRoboToolkit-PC-Service-Pybind
-bash setup_ubuntu.sh
-```
-
-安装后需确保 XRoboToolkit PC Service 在后台运行，Pico 头显与 PC 在同一 WiFi 下。
-
-### Step 7: 验证安装
+### Step 6: 验证安装
 
 ```bash
 .venv/bin/python -c "
 import pyorbbecsdk; print('pyorbbecsdk OK')
 import pyAgxArm; print('pyAgxArm OK')
 import lerobot; print('lerobot OK')
-import xrobotoolkit_sdk as xrt; xrt.init(); print('xrobotoolkit_sdk OK'); xrt.close()
 "
 ```
 
@@ -173,63 +160,6 @@ sudo ip link set can0 up type can bitrate 1000000
 
 ```bash
 echo 'sudo ip link set can0 up type can bitrate 1000000' >> ~/.bashrc
-```
-
-## 多相机配置
-
-### 相机检测
-
-```bash
-# 检测所有 Orbbec 相机
-uv run python -c "
-from lerobot.cameras.orbbec import OrbbecCamera
-cams = OrbbecCamera.find_cameras()
-for c in cams:
-    print(f'  {c[""name""]}  SN={c[""sn""]}')
-"
-
-# 检测 RealSense 相机
-uv run python -c "
-import pyrealsense2 as rs
-ctx = rs.context()
-for d in ctx.devices:
-    print(f'  SN={d.get_info(rs.camera_info.serial_number)}  Name={d.get_info(rs.camera_info.name)}')
-"
-```
-
-### Orbbec + RealSense 共存的 uvcvideo 驱动冲突
-
-Orbbec SDK 和 RealSense 都依赖 Linux `uvcvideo` 内核驱动，同时使用时可能冲突。
-
-**解决方案**：确保 `uvcvideo` 已加载，RealSense 优先使用 uvcvideo，Orbbec 使用其私有驱动（libusb）。
-
-```bash
-# 1. 确认 uvcvideo 已加载
-sudo modprobe uvcvideo
-lsmod | grep uvcvideo
-
-# 2. 如果 Orbbec 占用了 uvcvideo 导致 RealSense 找不到设备
-export ORBBEC_SDK_DISABLE_UVC=1
-
-# 3. 重新拔插所有相机
-```
-
-**排查步骤**（如果 RealSense 还是 0 devices）：
-
-```bash
-lsusb | grep -i "Intel\|RealSense"
-
-sudo apt install librealsense2-udev-rules 2>/dev/null || \
-  curl -s https://raw.githubusercontent.com/IntelRealSense/librealsense/master/config/99-realsense-libusb.rules | \
-  sudo tee /etc/udev/rules.d/99-realsense-libusb.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-```
-
-**建议**：将 `ORBBEC_SDK_DISABLE_UVC=1` 写入 `~/.bashrc` 永久生效：
-
-```bash
-echo 'export ORBBEC_SDK_DISABLE_UVC=1' >> ~/.bashrc
-source ~/.bashrc
 ```
 
 ## 遥操作与数据采集
